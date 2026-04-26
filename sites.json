@@ -1,0 +1,18 @@
+[
+  {
+    "name": "示例服务",
+    "internalUrl": "http://192.168.1.100:8080",
+    "externalUrl": "https://service.example.com",
+    "internalDescription": "内网直连地址，适合局域网设备访问",
+    "externalDescription": "公网访问地址，适合外出时访问",
+    "icon": ""
+  },
+  {
+    "name": "路由器",
+    "internalUrl": "http://192.168.1.1",
+    "externalUrl": "",
+    "internalDescription": "只在内网可访问的网关管理页面",
+    "externalDescription": "外网不可访问",
+    "icon": ""
+  }
+]

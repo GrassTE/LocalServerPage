@@ -22,6 +22,8 @@ let width = 0;
 let height = 0;
 let points = [];
 let animationFrame = 0;
+let browserProbeRun = 0;
+const browserProbeTimeoutMs = 5000;
 const pointer = {
   active: false,
   x: 0,
@@ -44,6 +46,79 @@ function normalize(value) {
 
 function getInitials(name) {
   return [...name.trim()].slice(0, 2).join('').toUpperCase() || '?';
+}
+
+function getIconSources(site) {
+  if (!site.iconUrl) {
+    return [];
+  }
+
+  const proxyUrl = `/api/icon/${encodeURIComponent(site.id)}`;
+
+  if (site.iconUrl.startsWith('/config-icons/')) {
+    return [proxyUrl];
+  }
+
+  return [site.iconUrl, proxyUrl];
+}
+
+function shouldProbeInBrowser(site, status) {
+  return site?.isUrlConfigured
+    && status
+    && !status.online
+    && !status.maintenance
+    && !status.internalOnly
+    && (status.error === 'timeout' || status.error === 'unreachable');
+}
+
+async function probeSiteFromBrowser(site, runId) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), browserProbeTimeoutMs);
+  const startedAt = Date.now();
+
+  try {
+    await fetch(site.url, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+
+    if (runId !== browserProbeRun) {
+      return;
+    }
+
+    const currentStatus = statuses.get(site.id);
+
+    if (!shouldProbeInBrowser(site, currentStatus)) {
+      return;
+    }
+
+    statuses.set(site.id, {
+      ...currentStatus,
+      online: true,
+      latencyMs: Date.now() - startedAt,
+      checkedAt: new Date().toISOString(),
+      checkedBy: 'browser',
+    });
+    render();
+  }
+  catch {
+    // Keep the server-side result when the browser cannot reach it either.
+  }
+  finally {
+    clearTimeout(timeout);
+  }
+}
+
+function refreshBrowserReachability() {
+  const runId = ++browserProbeRun;
+  const candidates = sites.filter(site => shouldProbeInBrowser(site, statuses.get(site.id)));
+
+  for (const site of candidates) {
+    probeSiteFromBrowser(site, runId);
+  }
 }
 
 function setFavicon(icon) {
@@ -160,16 +235,25 @@ function render() {
 
     fallback.textContent = getInitials(site.name);
 
-    if (site.iconUrl) {
-      image.src = `/api/icon/${encodeURIComponent(site.id)}`;
+    const iconSources = getIconSources(site);
+
+    if (iconSources.length > 0) {
+      let iconIndex = 0;
+      image.src = iconSources[iconIndex];
+      image.addEventListener('error', () => {
+        iconIndex += 1;
+
+        if (iconIndex < iconSources.length) {
+          image.src = iconSources[iconIndex];
+          return;
+        }
+
+        image.hidden = true;
+      });
     }
     else {
       image.hidden = true;
     }
-
-    image.addEventListener('error', () => {
-      image.hidden = true;
-    }, { once: true });
 
     title.textContent = site.name;
     description.textContent = site.description || '内网站点';
@@ -228,6 +312,7 @@ async function refreshStatus() {
     accessMode = data.accessMode || accessMode;
     statuses = new Map(data.statuses.map(status => [status.id, status]));
     render();
+    refreshBrowserReachability();
   }
   catch (error) {
     console.error(error);

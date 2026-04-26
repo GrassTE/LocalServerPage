@@ -251,7 +251,7 @@ function resolveIconUrl(site) {
   const baseUrl = site.activeUrl || site.url;
 
   if (!site.icon) {
-    return '';
+    return resolveDefaultIconUrl(baseUrl);
   }
 
   if (site.icon && site.icon.startsWith('/config-icons/')) {
@@ -263,6 +263,86 @@ function resolveIconUrl(site) {
   }
   catch {
     return '';
+  }
+}
+
+function resolveDefaultIconUrl(baseUrl) {
+  try {
+    return new URL('/favicon.ico', baseUrl).toString();
+  }
+  catch {
+    return '';
+  }
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function parseHtmlIconUrls(html, baseUrl) {
+  const urls = [];
+  const linkPattern = /<link\b[^>]*>/gi;
+  const attrPattern = /\s([a-zA-Z:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g;
+  const links = html.match(linkPattern) || [];
+
+  for (const link of links) {
+    const attrs = new Map();
+    let attrMatch;
+
+    while ((attrMatch = attrPattern.exec(link)) !== null) {
+      attrs.set(attrMatch[1].toLowerCase(), attrMatch[2] || attrMatch[3] || attrMatch[4] || '');
+    }
+
+    const rel = String(attrs.get('rel') || '').toLowerCase().split(/\s+/);
+    const href = attrs.get('href');
+
+    if (!href || !rel.some(value => value === 'icon' || value === 'shortcut' || value === 'apple-touch-icon')) {
+      continue;
+    }
+
+    try {
+      urls.push(new URL(href, baseUrl).toString());
+    }
+    catch {
+      // Ignore malformed icon links and keep trying other candidates.
+    }
+  }
+
+  return urls;
+}
+
+async function discoverIconUrls(site, signal) {
+  const baseUrl = site.activeUrl || site.url;
+
+  if (!baseUrl || site.icon) {
+    return [];
+  }
+
+  try {
+    const pageResponse = await fetch(baseUrl, {
+      redirect: 'follow',
+      signal,
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'User-Agent': 'LocalServerPage/1.0',
+      },
+    });
+
+    if (!pageResponse.ok) {
+      return [];
+    }
+
+    const contentType = pageResponse.headers.get('content-type') || '';
+
+    if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+      return [];
+    }
+
+    const html = await pageResponse.text();
+    return parseHtmlIconUrls(html, pageResponse.url || baseUrl);
+  }
+  catch {
+    return [];
   }
 }
 
@@ -402,16 +482,16 @@ async function handleIcon(request, response, pathname) {
     return;
   }
 
-  const iconUrl = resolveIconUrl(site);
+  const explicitIconUrl = resolveIconUrl(site);
 
-  if (!iconUrl) {
+  if (!explicitIconUrl) {
     response.writeHead(404);
     response.end();
     return;
   }
 
-  if (iconUrl.startsWith('/config-icons/')) {
-    await handleConfigIcon(response, iconUrl);
+  if (explicitIconUrl.startsWith('/config-icons/')) {
+    await handleConfigIcon(response, explicitIconUrl);
     return;
   }
 
@@ -419,26 +499,44 @@ async function handleIcon(request, response, pathname) {
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
 
   try {
-    const iconResponse = await fetch(iconUrl, {
-      redirect: 'follow',
-      signal: controller.signal,
-    });
+    const iconUrls = uniqueValues([
+      ...await discoverIconUrls(site, controller.signal),
+      explicitIconUrl,
+    ]);
 
-    if (!iconResponse.ok) {
-      response.writeHead(404);
-      response.end();
-      return;
+    for (const iconUrl of iconUrls) {
+      try {
+        const iconResponse = await fetch(iconUrl, {
+          redirect: 'follow',
+          signal: controller.signal,
+          headers: {
+            Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'User-Agent': 'LocalServerPage/1.0',
+          },
+        });
+
+        if (!iconResponse.ok) {
+          continue;
+        }
+
+        const contentType = iconResponse.headers.get('content-type') || 'image/x-icon';
+        const buffer = Buffer.from(await iconResponse.arrayBuffer());
+
+        response.writeHead(200, {
+          'Cache-Control': 'public, max-age=3600',
+          'Content-Length': buffer.byteLength,
+          'Content-Type': contentType,
+        });
+        response.end(buffer);
+        return;
+      }
+      catch {
+        // Try the next discovered icon candidate.
+      }
     }
 
-    const contentType = iconResponse.headers.get('content-type') || 'image/x-icon';
-    const buffer = Buffer.from(await iconResponse.arrayBuffer());
-
-    response.writeHead(200, {
-      'Cache-Control': 'public, max-age=3600',
-      'Content-Length': buffer.byteLength,
-      'Content-Type': contentType,
-    });
-    response.end(buffer);
+    response.writeHead(404);
+    response.end();
   }
   catch {
     response.writeHead(404);

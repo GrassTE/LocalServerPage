@@ -197,10 +197,11 @@ volumes:
   - ./config:/app/config
 ```
 
+首次启动时，如果宿主机的 `./config` 为空，容器会从镜像内置的 `/app/default-config` 自动复制缺失的配置文件到 `/app/config`。已有文件不会被覆盖。
+
 修改 `config/app.env` 后重启容器：
 
 ```bash
 docker compose restart
 ```
-
 

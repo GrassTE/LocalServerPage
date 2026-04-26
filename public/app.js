@@ -5,6 +5,7 @@ const searchInput = document.querySelector('#searchInput');
 const refreshButton = document.querySelector('#refreshButton');
 const onlineCount = document.querySelector('#onlineCount');
 const modeLabel = document.querySelector('#modeLabel');
+const categoryTabs = document.querySelector('#categoryTabs');
 const pageTitle = document.querySelector('h1');
 const pageEyebrow = document.querySelector('.eyebrow');
 const pageIcon = document.querySelector('#pageIcon');
@@ -13,7 +14,9 @@ const context = canvas.getContext('2d');
 
 let sites = [];
 let statuses = new Map();
+let categories = [{ id: 'all', name: '全部' }];
 let accessMode = 'internal';
+let activeCategory = 'all';
 let filter = '';
 let width = 0;
 let height = 0;
@@ -63,6 +66,9 @@ function applyAppConfig(config) {
   document.title = config.title || '内网主页';
   pageTitle.textContent = config.title || '内网主页';
   pageEyebrow.textContent = config.eyebrow || 'LAN Home';
+  categories = Array.isArray(config.categories) && config.categories.length
+    ? config.categories
+    : categories;
 
   if (config.icon) {
     pageIcon.src = config.icon;
@@ -73,12 +79,60 @@ function applyAppConfig(config) {
   }
 
   setFavicon(config.icon);
+  renderCategories();
+}
+
+function renderCategories() {
+  categoryTabs.replaceChildren();
+
+  for (const category of categories) {
+    const button = document.createElement('button');
+    const icon = document.createElement('span');
+    const label = document.createElement('span');
+
+    button.type = 'button';
+    button.className = 'category-tab';
+    button.dataset.category = category.id;
+    button.setAttribute('aria-pressed', String(category.id === activeCategory));
+
+    icon.className = 'category-tab-icon';
+
+    if (category.id === 'all') {
+      icon.setAttribute('aria-hidden', 'true');
+    }
+    else if (category.icon) {
+      const image = document.createElement('img');
+      image.alt = '';
+      image.src = category.icon;
+      image.addEventListener('error', () => {
+        image.remove();
+        icon.textContent = getInitials(category.name).slice(0, 1);
+      }, { once: true });
+      icon.append(image);
+    }
+    else {
+      icon.textContent = getInitials(category.name).slice(0, 1);
+    }
+
+    label.className = 'category-tab-label';
+    label.textContent = category.name;
+
+    button.addEventListener('click', () => {
+      activeCategory = category.id;
+      renderCategories();
+      render();
+    });
+
+    button.append(icon, label);
+    categoryTabs.append(button);
+  }
 }
 
 function render() {
   const filteredSites = sites.filter((site) => {
-    const haystack = normalize(`${site.name} ${site.url || ''} ${site.description}`);
-    return haystack.includes(filter);
+    const matchesCategory = activeCategory === 'all' || site.category === activeCategory;
+    const haystack = normalize(`${site.name} ${site.url || ''} ${site.description} ${site.category || ''}`);
+    return matchesCategory && haystack.includes(filter);
   });
 
   grid.replaceChildren();
@@ -104,10 +158,17 @@ function render() {
       card.addEventListener('click', (event) => event.preventDefault());
     }
 
-    image.src = `/api/icon/${encodeURIComponent(site.id)}`;
+    fallback.textContent = getInitials(site.name);
+
+    if (site.iconUrl) {
+      image.src = `/api/icon/${encodeURIComponent(site.id)}`;
+    }
+    else {
+      image.hidden = true;
+    }
+
     image.addEventListener('error', () => {
       image.hidden = true;
-      fallback.textContent = getInitials(site.name);
     }, { once: true });
 
     title.textContent = site.name;

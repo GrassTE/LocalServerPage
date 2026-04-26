@@ -159,9 +159,16 @@ h1 {
 
 .toolbar {
   display: grid;
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.toolbar-actions {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
   gap: 10px;
-  margin-bottom: 20px;
 }
 
 .search {
@@ -227,6 +234,96 @@ button:disabled {
 
 button.spinning svg {
   animation: spin 0.9s linear infinite;
+}
+
+.category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.category-tab {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: auto;
+  min-width: 86px;
+  height: 44px;
+  padding: 0 14px 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.category-tab-icon {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(125, 249, 255, 0.2);
+  border-radius: 7px;
+  color: var(--accent-strong);
+  background: rgba(4, 12, 18, 0.64);
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.category-tab-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.category-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-tab[data-category="all"] {
+  min-width: 104px;
+  color: var(--text);
+  border-color: rgba(125, 249, 255, 0.38);
+  background:
+    linear-gradient(135deg, rgba(45, 212, 191, 0.2), rgba(96, 165, 250, 0.12)),
+    rgba(8, 18, 25, 0.86);
+  box-shadow:
+    inset 0 0 18px rgba(125, 249, 255, 0.08),
+    0 0 28px rgba(45, 212, 191, 0.12);
+}
+
+.category-tab[data-category="all"] .category-tab-icon {
+  width: 7px;
+  height: 7px;
+  margin-left: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  box-shadow: 0 0 12px rgba(125, 249, 255, 0.85);
+}
+
+.category-tab[aria-pressed="true"] {
+  border-color: rgba(125, 249, 255, 0.55);
+  color: var(--accent-strong);
+  background: rgba(45, 212, 191, 0.12);
+  box-shadow: 0 0 24px rgba(45, 212, 191, 0.12);
+}
+
+.category-tab[data-category="all"][aria-pressed="true"] {
+  color: #031312;
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  box-shadow:
+    0 0 26px rgba(45, 212, 191, 0.24),
+    0 0 54px rgba(125, 249, 255, 0.12);
+}
+
+.category-tab[data-category="all"][aria-pressed="true"] .category-tab-icon {
+  background: #031312;
+  box-shadow: none;
 }
 
 .grid {
@@ -446,6 +543,25 @@ button.spinning svg {
   .summary {
     width: 100%;
     text-align: left;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .toolbar-actions {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .category-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .category-tab {
+    flex: 0 0 auto;
   }
 
   .grid {

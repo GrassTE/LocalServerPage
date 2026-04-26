@@ -1,5 +1,27 @@
 {
   "title": "内网主页",
   "eyebrow": "LAN Home",
-  "icon": "/config-icons/icon.png"
+  "icon": "/config-icons/icon.png",
+  "categories": [
+    {
+      "id": "all",
+      "name": "全部",
+      "icon": ""
+    },
+    {
+      "id": "movie",
+      "name": "影视",
+      "icon": ""
+    },
+    {
+      "id": "code",
+      "name": "代码",
+      "icon": ""
+    },
+    {
+      "id": "music",
+      "name": "音乐",
+      "icon": ""
+    }
+  ]
 }

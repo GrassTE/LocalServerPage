@@ -84,3 +84,24 @@ volumes:
 ```bash
 docker compose restart
 ```
+
+## GitHub Actions 打包镜像
+
+仓库里已经包含 `.github/workflows/docker.yml`。推送到 `master` 或 `main` 后会自动构建并推送镜像：
+
+```text
+ghcr.io/grasste/localserverpage:latest
+```
+
+也会生成分支标签、Git 标签和 commit sha 标签。发布版本时可以打 tag：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+服务器上如果想直接使用 GitHub Actions 构建好的镜像，可以用：
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```

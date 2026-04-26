@@ -6,8 +6,10 @@
     "internalDescription": "内网直连地址，适合局域网设备访问",
     "externalDescription": "公网访问地址，适合外出时访问",
     "icon": "/config-icons/icon.png",
+    "category": "code",
     "maintenance": false,
-    "internalOnly": false
+    "internalOnly": false,
+    "showExternal": true
   },
   {
     "name": "路由器",
@@ -16,8 +18,10 @@
     "internalDescription": "只在内网可访问的网关管理页面",
     "externalDescription": "外网不可访问",
     "icon": "",
+    "category": "code",
     "maintenance": false,
-    "internalOnly": true
+    "internalOnly": true,
+    "showExternal": true
   },
   {
     "name": "nas",
@@ -26,7 +30,9 @@
     "internalDescription": "只在内网可访问的网关管理页面",
     "externalDescription": "外网不可访问",
     "icon": "",
+    "category": "movie",
     "maintenance": true,
-    "internalOnly": true
+    "internalOnly": true,
+    "showExternal": false
   }
 ]

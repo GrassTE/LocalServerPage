@@ -41,6 +41,9 @@ const defaultAppConfig = {
   title: '内网主页',
   eyebrow: 'LAN Home',
   icon: '/config-icons/favicon.svg',
+  categories: [
+    { id: 'all', name: '全部' },
+  ],
 };
 
 function loadEnvFile(filePath) {
@@ -92,8 +95,10 @@ async function readSites() {
     internalDescription: String(site.internalDescription || site.description || ''),
     externalDescription: String(site.externalDescription || site.description || ''),
     icon: String(site.icon || ''),
+    category: String(site.category || ''),
     maintenance: site.maintenance === true || site.maintenance === 'true',
     internalOnly: site.internalOnly === true || site.internalOnly === 'true',
+    showExternal: site.showExternal !== false && site.showExternal !== 'false',
   })).filter(site => site.internalUrl || site.externalUrl);
 }
 
@@ -109,7 +114,35 @@ async function readAppConfig() {
     title: String(config.title || defaultAppConfig.title),
     eyebrow: String(config.eyebrow || defaultAppConfig.eyebrow),
     icon: String(config.icon || defaultAppConfig.icon),
+    categories: normalizeCategories(config.categories),
   };
+}
+
+function normalizeCategories(categories) {
+  const items = Array.isArray(categories) ? categories : defaultAppConfig.categories;
+  const normalized = items
+    .map((category) => {
+      if (typeof category === 'string') {
+      return {
+        id: slugify(category),
+        name: category,
+        icon: '',
+      };
+    }
+
+    return {
+      id: slugify(String(category?.id || category?.name || '')),
+      name: String(category?.name || category?.id || ''),
+      icon: String(category?.icon || ''),
+    };
+  })
+    .filter(category => category.id && category.name);
+
+  if (!normalized.some(category => category.id === 'all')) {
+    normalized.unshift({ id: 'all', name: '全部' });
+  }
+
+  return normalized;
 }
 
 function slugify(value) {
@@ -210,28 +243,27 @@ function applyAccessMode(site, accessMode) {
   };
 }
 
+function isVisibleInAccessMode(site, accessMode) {
+  return accessMode === 'internal' || site.showExternal;
+}
+
 function resolveIconUrl(site) {
   const baseUrl = site.activeUrl || site.url;
+
+  if (!site.icon) {
+    return '';
+  }
 
   if (site.icon && site.icon.startsWith('/config-icons/')) {
     return site.icon;
   }
 
-  if (site.icon) {
-    try {
-      return new URL(site.icon, baseUrl).toString();
-    }
-    catch {
-      return '';
-    }
+  try {
+    return new URL(site.icon, baseUrl).toString();
   }
-
-  if (!baseUrl) {
+  catch {
     return '';
   }
-
-  const origin = getOrigin(baseUrl);
-  return origin ? `${origin}/favicon.ico` : '';
 }
 
 function toClientSite(site) {
@@ -243,8 +275,10 @@ function toClientSite(site) {
     activeUrl: site.activeUrl,
     url: site.url,
     isUrlConfigured: site.isUrlConfigured,
+    category: site.category,
     maintenance: site.maintenance,
     internalOnly: site.internalOnly,
+    showExternal: site.showExternal,
     iconUrl: resolveIconUrl(site),
   };
 }
@@ -329,7 +363,9 @@ async function checkSite(site) {
 async function handleSites(request, response) {
   const accessMode = getAccessMode(request);
   const sites = await readSites();
-  const visibleSites = sites.map(site => applyAccessMode(site, accessMode));
+  const visibleSites = sites
+    .filter(site => isVisibleInAccessMode(site, accessMode))
+    .map(site => applyAccessMode(site, accessMode));
 
   sendJson(response, 200, {
     accessMode,
@@ -339,7 +375,9 @@ async function handleSites(request, response) {
 
 async function handleStatus(request, response) {
   const accessMode = getAccessMode(request);
-  const sites = (await readSites()).map(site => applyAccessMode(site, accessMode));
+  const sites = (await readSites())
+    .filter(site => isVisibleInAccessMode(site, accessMode))
+    .map(site => applyAccessMode(site, accessMode));
   const statuses = await Promise.all(sites.map(checkSite));
 
   sendJson(response, 200, { accessMode, statuses });
@@ -353,7 +391,9 @@ async function handleAppConfig(_request, response) {
 async function handleIcon(request, response, pathname) {
   const id = decodeURIComponent(pathname.replace('/api/icon/', ''));
   const accessMode = getAccessMode(request);
-  const sites = (await readSites()).map(site => applyAccessMode(site, accessMode));
+  const sites = (await readSites())
+    .filter(site => isVisibleInAccessMode(site, accessMode))
+    .map(site => applyAccessMode(site, accessMode));
   const site = sites.find(item => item.id === id);
 
   if (!site) {

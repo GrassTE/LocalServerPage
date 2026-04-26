@@ -56,7 +56,6 @@ function render() {
     const fallback = card.querySelector('.fallback-icon');
     const title = card.querySelector('strong');
     const description = card.querySelector('.description');
-    const url = card.querySelector('.url');
     const state = card.querySelector('.state');
     const latency = card.querySelector('.latency');
 
@@ -76,7 +75,6 @@ function render() {
 
     title.textContent = site.name;
     description.textContent = site.description || '内网站点';
-    url.textContent = site.isUrlConfigured ? site.url : (accessMode === 'internal' ? '未配置内网地址' : '未配置外网地址');
 
     if (!status) {
       state.textContent = '检测中';
@@ -99,7 +97,7 @@ function render() {
   });
 
   const online = [...statuses.values()].filter(status => status.online).length;
-  onlineCount.textContent = statuses.size ? `${online}/${sites.length}` : `--/${sites.length}`;
+  onlineCount.textContent = statuses.size ? `在线服务 ${online}/${sites.length}` : `在线服务 --/${sites.length}`;
   modeLabel.textContent = accessMode === 'internal' ? '内网模式' : '外网模式';
 }
 

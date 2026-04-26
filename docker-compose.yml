@@ -1,0 +1,9 @@
+services:
+  local-server-page:
+    build: .
+    container_name: local-server-page
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config:/app/config
+    restart: unless-stopped

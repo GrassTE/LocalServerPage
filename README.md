@@ -1,30 +1,33 @@
-# 内网主页
+# LocalServerPage
 
-一个轻量的局域网服务入口页，用来集中展示内网正在运行的网站。
+一个轻量的内网/外网服务入口页，用来集中展示站点、图标和在线状态。
 
-## 启动
+## 本地启动
+
+需要 Node.js 18 或更新版本。
 
 ```bash
 npm start
 ```
 
-不需要安装第三方依赖，但需要 Node.js 18 或更新版本。
-
-默认访问地址：
+默认访问：
 
 ```text
 http://localhost:3000
 ```
 
-局域网其他设备可以访问这台机器的局域网 IP，例如：
+## 配置目录
+
+可配置文件都放在 `config/`：
 
 ```text
-http://192.168.31.250:3000
+config/
+  sites.json
+  app.env
+  app.env.example
 ```
 
-## 配置站点
-
-编辑 `sites.json`：
+`config/sites.json` 配置站点：
 
 ```json
 [
@@ -39,36 +42,45 @@ http://192.168.31.250:3000
 ]
 ```
 
-字段说明：
+`config/app.env` 配置运行参数：
 
-- `name`：页面上显示的网站名称。
-- `internalUrl`：内网访问主页时使用的跳转地址。
-- `externalUrl`：外网访问主页时使用的跳转地址。
-- `internalDescription`：内网访问主页时显示的描述。
-- `externalDescription`：外网访问主页时显示的描述。
-- `icon`：可选。留空时会自动尝试读取当前模式下的 `网站地址/favicon.ico`。
-
-旧版的 `url` 和 `description` 字段仍然可用，会同时作为内网和外网内容。新配置建议使用 `internalUrl`、`externalUrl`、`internalDescription` 和 `externalDescription`。
-
-访问模式会根据主页自身的访问地址自动判断：
-
-- 通过 `localhost`、`192.168.x.x`、`10.x.x.x`、`172.16-31.x.x`、`.lan`、`.local` 访问时使用内网地址。
-- 通过公网域名或公网 IP 访问时使用外网地址。
-
-如果你有自定义内网域名，可以启动前配置 `INTERNAL_HOSTS`，多个域名用英文逗号分隔：
-
-```powershell
-$env:INTERNAL_HOSTS='home.example.com,server.lan'; npm start
+```env
+PORT=3000
+STATUS_TIMEOUT_MS=3000
+INTERNAL_HOSTS=
 ```
 
-状态会每 30 秒刷新一次。默认检测超时是 3 秒，可以通过环境变量调整：
+站点配置会在每次接口请求时重新读取；修改 `sites.json` 后通常不用重启。修改 `app.env` 后需要重启服务。
+
+## 访问模式
+
+通过 `localhost`、`192.168.x.x`、`10.x.x.x`、`172.16-31.x.x`、`.lan`、`.local` 等地址访问时使用内网 URL 和内网描述。
+
+通过公网域名或公网 IP 访问时使用外网 URL 和外网描述。没有配置外网 URL 的站点会显示为未配置，卡片不可点击。
+
+如果你有自定义内网域名，可以在 `config/app.env` 里配置：
+
+```env
+INTERNAL_HOSTS=home.example.com,server.lan
+```
+
+## Docker
+
+已经准备好 `Dockerfile` 和 `docker-compose.yml`。
 
 ```bash
-STATUS_TIMEOUT_MS=5000 npm start
+docker compose up -d --build
 ```
 
-PowerShell 写法：
+Docker 部署时，`config` 会挂载到容器内：
 
-```powershell
-$env:STATUS_TIMEOUT_MS='5000'; npm start
+```yaml
+volumes:
+  - ./config:/app/config
+```
+
+之后改站点只需要编辑宿主机上的 `config/sites.json`。如果改了 `config/app.env`，重启容器：
+
+```bash
+docker compose restart
 ```

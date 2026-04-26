@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
@@ -5,10 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const configDir = path.resolve(process.env.CONFIG_DIR || path.join(__dirname, 'config'));
+
+loadEnvFile(path.join(configDir, 'app.env'));
+
 const port = Number(process.env.PORT || 3000);
 const requestTimeoutMs = Number(process.env.STATUS_TIMEOUT_MS || 3000);
 const publicDir = path.join(__dirname, 'public');
-const sitesPath = path.join(__dirname, 'sites.json');
+const sitesPath = path.join(configDir, 'sites.json');
+const legacySitesPath = path.join(__dirname, 'sites.json');
 const internalHosts = new Set(
   String(process.env.INTERNAL_HOSTS || '')
     .split(',')
@@ -28,8 +34,40 @@ const mimeTypes = new Map([
   ['.ico', 'image/x-icon'],
 ]);
 
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) {
+    return;
+  }
+
+  const lines = readFileSync(filePath, 'utf8').split(/\r?\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+
+    if (!match) {
+      continue;
+    }
+
+    const [, key, rawValue] = match;
+    const value = rawValue
+      .replace(/^(['"])(.*)\1$/, '$2')
+      .trim();
+
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
 async function readSites() {
-  const raw = await fs.readFile(sitesPath, 'utf8');
+  const activeSitesPath = existsSync(sitesPath) ? sitesPath : legacySitesPath;
+  const raw = await fs.readFile(activeSitesPath, 'utf8');
   const sites = JSON.parse(raw);
 
   if (!Array.isArray(sites)) {

@@ -15,6 +15,8 @@ const requestTimeoutMs = Number(process.env.STATUS_TIMEOUT_MS || 3000);
 const publicDir = path.join(__dirname, 'public');
 const sitesPath = path.join(configDir, 'sites.json');
 const legacySitesPath = path.join(__dirname, 'sites.json');
+const appConfigPath = path.join(configDir, 'app.json');
+const configIconsDir = path.join(configDir, 'icons');
 const internalHosts = new Set(
   String(process.env.INTERNAL_HOSTS || '')
     .split(',')
@@ -32,7 +34,14 @@ const mimeTypes = new Map([
   ['.jpg', 'image/jpeg'],
   ['.jpeg', 'image/jpeg'],
   ['.ico', 'image/x-icon'],
+  ['.webp', 'image/webp'],
 ]);
+
+const defaultAppConfig = {
+  title: '内网主页',
+  eyebrow: 'LAN Home',
+  icon: '/config-icons/favicon.svg',
+};
 
 function loadEnvFile(filePath) {
   if (!existsSync(filePath)) {
@@ -83,7 +92,24 @@ async function readSites() {
     internalDescription: String(site.internalDescription || site.description || ''),
     externalDescription: String(site.externalDescription || site.description || ''),
     icon: String(site.icon || ''),
+    maintenance: site.maintenance === true || site.maintenance === 'true',
+    internalOnly: site.internalOnly === true || site.internalOnly === 'true',
   })).filter(site => site.internalUrl || site.externalUrl);
+}
+
+async function readAppConfig() {
+  if (!existsSync(appConfigPath)) {
+    return defaultAppConfig;
+  }
+
+  const raw = await fs.readFile(appConfigPath, 'utf8');
+  const config = JSON.parse(raw);
+
+  return {
+    title: String(config.title || defaultAppConfig.title),
+    eyebrow: String(config.eyebrow || defaultAppConfig.eyebrow),
+    icon: String(config.icon || defaultAppConfig.icon),
+  };
 }
 
 function slugify(value) {
@@ -168,7 +194,7 @@ function getAccessMode(request) {
 function applyAccessMode(site, accessMode) {
   const activeUrl = accessMode === 'internal'
     ? site.internalUrl || site.externalUrl
-    : site.externalUrl;
+    : site.internalOnly ? '' : site.externalUrl;
   const activeDescription = accessMode === 'internal'
     ? site.internalDescription || site.description
     : site.externalDescription || site.description;
@@ -187,8 +213,8 @@ function applyAccessMode(site, accessMode) {
 function resolveIconUrl(site) {
   const baseUrl = site.activeUrl || site.url;
 
-  if (!baseUrl) {
-    return '';
+  if (site.icon && site.icon.startsWith('/config-icons/')) {
+    return site.icon;
   }
 
   if (site.icon) {
@@ -198,6 +224,10 @@ function resolveIconUrl(site) {
     catch {
       return '';
     }
+  }
+
+  if (!baseUrl) {
+    return '';
   }
 
   const origin = getOrigin(baseUrl);
@@ -213,15 +243,44 @@ function toClientSite(site) {
     activeUrl: site.activeUrl,
     url: site.url,
     isUrlConfigured: site.isUrlConfigured,
+    maintenance: site.maintenance,
+    internalOnly: site.internalOnly,
     iconUrl: resolveIconUrl(site),
   };
 }
 
 async function checkSite(site) {
+  if (site.maintenance) {
+    return {
+      id: site.id,
+      online: false,
+      maintenance: true,
+      status: null,
+      latencyMs: 0,
+      checkedAt: new Date().toISOString(),
+      error: 'maintenance',
+    };
+  }
+
+  if (site.accessMode === 'external' && site.internalOnly) {
+    return {
+      id: site.id,
+      online: false,
+      maintenance: false,
+      internalOnly: true,
+      status: null,
+      latencyMs: 0,
+      checkedAt: new Date().toISOString(),
+      error: 'internal-only',
+    };
+  }
+
   if (!site.activeUrl) {
     return {
       id: site.id,
       online: false,
+      maintenance: false,
+      internalOnly: false,
       status: null,
       latencyMs: 0,
       checkedAt: new Date().toISOString(),
@@ -243,6 +302,8 @@ async function checkSite(site) {
     return {
       id: site.id,
       online: response.status < 500,
+      maintenance: false,
+      internalOnly: false,
       status: response.status,
       latencyMs: Date.now() - startedAt,
       checkedAt: new Date().toISOString(),
@@ -252,6 +313,8 @@ async function checkSite(site) {
     return {
       id: site.id,
       online: false,
+      maintenance: false,
+      internalOnly: false,
       status: null,
       latencyMs: Date.now() - startedAt,
       checkedAt: new Date().toISOString(),
@@ -282,6 +345,11 @@ async function handleStatus(request, response) {
   sendJson(response, 200, { accessMode, statuses });
 }
 
+async function handleAppConfig(_request, response) {
+  const config = await readAppConfig();
+  sendJson(response, 200, config);
+}
+
 async function handleIcon(request, response, pathname) {
   const id = decodeURIComponent(pathname.replace('/api/icon/', ''));
   const accessMode = getAccessMode(request);
@@ -299,6 +367,11 @@ async function handleIcon(request, response, pathname) {
   if (!iconUrl) {
     response.writeHead(404);
     response.end();
+    return;
+  }
+
+  if (iconUrl.startsWith('/config-icons/')) {
+    await handleConfigIcon(response, iconUrl);
     return;
   }
 
@@ -362,6 +435,32 @@ async function handleStatic(request, response, pathname) {
   }
 }
 
+async function handleConfigIcon(response, pathname) {
+  const requestedPath = pathname.replace('/config-icons/', '');
+  const decodedPath = decodeURIComponent(requestedPath);
+  const filePath = path.normalize(path.join(configIconsDir, decodedPath));
+
+  if (!filePath.startsWith(configIconsDir)) {
+    sendText(response, 403, 'Forbidden');
+    return;
+  }
+
+  try {
+    const file = await fs.readFile(filePath);
+    const contentType = mimeTypes.get(path.extname(filePath)) || 'application/octet-stream';
+
+    response.writeHead(200, {
+      'Cache-Control': 'no-store',
+      'Content-Length': file.byteLength,
+      'Content-Type': contentType,
+    });
+    response.end(file);
+  }
+  catch {
+    sendText(response, 404, 'Not found');
+  }
+}
+
 const server = http.createServer(async (request, response) => {
   try {
     const url = new URL(request.url || '/', `http://${request.headers.host || 'localhost'}`);
@@ -376,6 +475,11 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    if (url.pathname === '/api/app-config') {
+      await handleAppConfig(request, response);
+      return;
+    }
+
     if (url.pathname === '/api/status') {
       await handleStatus(request, response);
       return;
@@ -383,6 +487,11 @@ const server = http.createServer(async (request, response) => {
 
     if (url.pathname.startsWith('/api/icon/')) {
       await handleIcon(request, response, url.pathname);
+      return;
+    }
+
+    if (url.pathname.startsWith('/config-icons/')) {
+      await handleConfigIcon(response, url.pathname);
       return;
     }
 

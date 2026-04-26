@@ -5,6 +5,9 @@ const searchInput = document.querySelector('#searchInput');
 const refreshButton = document.querySelector('#refreshButton');
 const onlineCount = document.querySelector('#onlineCount');
 const modeLabel = document.querySelector('#modeLabel');
+const pageTitle = document.querySelector('h1');
+const pageEyebrow = document.querySelector('.eyebrow');
+const pageIcon = document.querySelector('#pageIcon');
 const canvas = document.querySelector('#networkCanvas');
 const context = canvas.getContext('2d');
 
@@ -40,6 +43,38 @@ function getInitials(name) {
   return [...name.trim()].slice(0, 2).join('').toUpperCase() || '?';
 }
 
+function setFavicon(icon) {
+  if (!icon) {
+    return;
+  }
+
+  let link = document.querySelector('link[rel="icon"]');
+
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.append(link);
+  }
+
+  link.href = icon;
+}
+
+function applyAppConfig(config) {
+  document.title = config.title || '内网主页';
+  pageTitle.textContent = config.title || '内网主页';
+  pageEyebrow.textContent = config.eyebrow || 'LAN Home';
+
+  if (config.icon) {
+    pageIcon.src = config.icon;
+    pageIcon.hidden = false;
+    pageIcon.addEventListener('error', () => {
+      pageIcon.hidden = true;
+    }, { once: true });
+  }
+
+  setFavicon(config.icon);
+}
+
 function render() {
   const filteredSites = sites.filter((site) => {
     const haystack = normalize(`${site.name} ${site.url || ''} ${site.description}`);
@@ -60,7 +95,9 @@ function render() {
     const latency = card.querySelector('.latency');
 
     card.href = site.isUrlConfigured ? site.url : '#';
-    card.dataset.state = status ? (status.online ? 'online' : 'offline') : 'checking';
+    card.dataset.state = status
+      ? (status.maintenance ? 'maintenance' : status.internalOnly ? 'internal-only' : status.online ? 'online' : 'offline')
+      : 'checking';
 
     if (!site.isUrlConfigured) {
       card.setAttribute('aria-disabled', 'true');
@@ -79,6 +116,14 @@ function render() {
     if (!status) {
       state.textContent = '检测中';
       latency.textContent = '';
+    }
+    else if (status.maintenance) {
+      state.textContent = '维护中';
+      latency.textContent = '暂停检测';
+    }
+    else if (status.internalOnly) {
+      state.textContent = '仅内网访问';
+      latency.textContent = '暂停检测';
     }
     else if (status.online) {
       state.textContent = '在线';
@@ -106,6 +151,11 @@ async function loadSites() {
   accessMode = data.accessMode || 'internal';
   sites = data.sites;
   render();
+}
+
+async function loadAppConfig() {
+  const config = await fetchJson('/api/app-config');
+  applyAppConfig(config);
 }
 
 async function refreshStatus() {
@@ -278,6 +328,7 @@ window.addEventListener('blur', () => {
 resizeCanvas();
 drawNetwork();
 
+await loadAppConfig();
 await loadSites();
 await refreshStatus();
 setInterval(refreshStatus, 30000);

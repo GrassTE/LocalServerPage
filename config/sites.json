@@ -5,7 +5,9 @@
     "externalUrl": "https://service.example.com",
     "internalDescription": "内网直连地址，适合局域网设备访问",
     "externalDescription": "公网访问地址，适合外出时访问",
-    "icon": ""
+    "icon": "/config-icons/icon.png",
+    "maintenance": false,
+    "internalOnly": false
   },
   {
     "name": "路由器",
@@ -13,6 +15,18 @@
     "externalUrl": "",
     "internalDescription": "只在内网可访问的网关管理页面",
     "externalDescription": "外网不可访问",
-    "icon": ""
+    "icon": "",
+    "maintenance": false,
+    "internalOnly": true
+  },
+  {
+    "name": "nas",
+    "internalUrl": "http://192.168.1.1",
+    "externalUrl": "",
+    "internalDescription": "只在内网可访问的网关管理页面",
+    "externalDescription": "外网不可访问",
+    "icon": "",
+    "maintenance": true,
+    "internalOnly": true
   }
 ]

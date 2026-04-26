@@ -22,9 +22,21 @@ http://localhost:3000
 
 ```text
 config/
+  app.json
   sites.json
   app.env
   app.env.example
+  icons/
+```
+
+`config/app.json` 配置主页标题和浏览器图标：
+
+```json
+{
+  "title": "内网主页",
+  "eyebrow": "LAN Home",
+  "icon": "/config-icons/favicon.svg"
+}
 ```
 
 `config/sites.json` 配置站点：
@@ -37,7 +49,9 @@ config/
     "externalUrl": "https://nas.example.com",
     "internalDescription": "局域网内文件服务",
     "externalDescription": "外网访问文件服务",
-    "icon": ""
+    "icon": "/config-icons/nas.png",
+    "maintenance": false,
+    "internalOnly": false
   }
 ]
 ```
@@ -51,6 +65,24 @@ INTERNAL_HOSTS=
 ```
 
 站点配置会在每次接口请求时重新读取；修改 `sites.json` 后通常不用重启。修改 `app.env` 后需要重启服务。
+
+自定义图标放进 `config/icons/`，然后使用 `/config-icons/文件名` 引用。
+
+如果某个站点正在维护，可以设置：
+
+```json
+"maintenance": true
+```
+
+设置后页面会显示“维护中”，并跳过这个站点的在线检测。
+
+如果某个站点只允许内网访问，可以设置：
+
+```json
+"internalOnly": true
+```
+
+这样外网访问主页时，该站点会显示“仅内网访问”，并跳过在线检测。维护中状态优先级更高。
 
 ## 访问模式
 

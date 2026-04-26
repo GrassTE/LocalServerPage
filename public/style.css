@@ -10,6 +10,7 @@
   --accent-strong: #7df9ff;
   --danger: #fb7185;
   --warning: #fbbf24;
+  --info: #60a5fa;
   --shadow: 0 26px 70px rgba(0, 0, 0, 0.42);
 }
 
@@ -105,6 +106,30 @@ h1 {
   line-height: 1;
   letter-spacing: 0;
   text-shadow: 0 0 34px rgba(45, 212, 191, 0.32);
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.title-icon-wrap {
+  display: grid;
+  width: clamp(66px, 9vw, 96px);
+  height: clamp(66px, 9vw, 96px);
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.title-icon-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.title-icon-wrap:has(img[hidden]) {
+  display: none;
 }
 
 .summary {
@@ -278,24 +303,27 @@ button.spinning svg {
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.12);
 }
 
+.site-card[data-state="maintenance"] .status-dot {
+  background: var(--warning);
+  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.14);
+}
+
+.site-card[data-state="internal-only"] .status-dot {
+  background: var(--info);
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.14);
+}
+
 .icon-wrap {
   display: grid;
   width: 86px;
   height: 86px;
   justify-self: center;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--panel-strong);
-  overflow: hidden;
-  box-shadow:
-    inset 0 0 24px rgba(45, 212, 191, 0.1),
-    0 0 26px rgba(45, 212, 191, 0.08);
 }
 
 .icon-wrap img {
-  width: 58px;
-  height: 58px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
 }
 
@@ -307,6 +335,15 @@ button.spinning svg {
 
 .icon-wrap img:not([hidden]) + .fallback-icon {
   display: none;
+}
+
+.icon-wrap:has(img[hidden]) {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-strong);
+  box-shadow:
+    inset 0 0 24px rgba(45, 212, 191, 0.1),
+    0 0 26px rgba(45, 212, 191, 0.08);
 }
 
 .site-main {
@@ -353,6 +390,14 @@ button.spinning svg {
   color: var(--warning);
 }
 
+.site-card[data-state="maintenance"] .state {
+  color: var(--warning);
+}
+
+.site-card[data-state="internal-only"] .state {
+  color: var(--info);
+}
+
 .empty {
   margin: 34px 0 0;
   color: var(--muted);
@@ -394,12 +439,48 @@ button.spinning svg {
     gap: 16px;
   }
 
+  .title-row {
+    gap: 10px;
+  }
+
   .summary {
     width: 100%;
     text-align: left;
   }
 
   .grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .site-card {
+    min-height: 184px;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .icon-wrap {
+    width: 68px;
+    height: 68px;
+  }
+
+  .icon-wrap img {
+    width: 100%;
+    height: 100%;
+  }
+
+  .site-main strong {
+    font-size: 1rem;
+  }
+
+  .description {
+    font-size: 0.82rem;
+  }
+
+  .meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.78rem;
   }
 }
